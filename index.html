@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RM Dashboard 2025</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { --primary: #004d40; --light: #e0f2f1; --bg: #f3f4f6; --text: #333; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding-bottom: 60px; color: var(--text); }
+        
+        /* NAVBAR */
+        .navbar { background: var(--primary); padding: 15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .navbar h1 { margin: 0; color: white; font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+        .nav-links { display: flex; gap: 10px; overflow-x: auto; }
+        .nav-links a { color: white; text-decoration: none; font-size: 0.85rem; background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
+        .nav-links a:hover { background: #ffca28; color: black; }
+
+        /* GRID LAYOUT */
+        .container { max-width: 900px; margin: 20px auto; padding: 0 15px; display: grid; gap: 20px; }
+        .card { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .head-row { border-left: 4px solid var(--primary); padding-left: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .head-row h3 { margin: 0; color: var(--primary); font-size: 1.1rem; }
+
+        /* FOREX */
+        .forex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .fx-item { background: var(--light); padding: 10px; border-radius: 8px; text-align: center; }
+        .fx-val { font-size: 1.2rem; font-weight: bold; color: var(--primary); display: block; }
+        .fx-label { font-size: 0.8rem; color: #666; }
+
+        /* TABLES (FD & Money Market) */
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { text-align: left; background: #f8f9fa; padding: 10px; color: #555; border-bottom: 2px solid #eee; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        .highlight { font-weight: bold; color: #d32f2f; }
+        
+        /* NEWS (Clickable) */
+        .news-link { display: block; padding: 10px 0; border-bottom: 1px solid #eee; text-decoration: none; color: #333; font-weight: 500; }
+        .news-link:hover { color: var(--primary); }
+        .news-date { font-size: 0.75rem; color: #888; display: block; margin-top: 4px; }
+
+        /* JOBS */
+        .job-btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem; transition: 0.2s; }
+        .btn-linkedin { background: #0077b5; color: white; }
+        .btn-bdjobs { background: #e91e63; color: white; }
+        .btn-sr { background: var(--primary); color: white; }
+
+        /* CHART */
+        #macroChart { max-height: 200px; width: 100%; }
+
+        /* EMI CALC */
+        .calc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+        .calc-grid input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .calc-res { text-align: center; font-weight: bold; color: var(--primary); padding: 10px; background: var(--light); border-radius: 4px; display: none; }
+
+        /* FOOTER */
+        footer { text-align: center; font-size: 0.8rem; color: #999; margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <h1 onclick="location.reload()">RM Dashboard</h1>
+    <div class="nav-links">
+        <a href="#rates">Rates</a>
+        <a href="#money">Money Mkt</a>
+        <a href="#news">News</a>
+        <a href="#jobs">Jobs</a>
+    </div>
+</div>
+
+<div class="container">
+
+    <div class="card" id="rates">
+        <div class="head-row"><h3>Live Forex</h3> <small>Auto-Update</small></div>
+        <div class="forex-grid" id="forex-box"><div class="fx-item">Loading...</div></div>
+    </div>
+
+    <div class="card" id="money">
+        <div class="head-row"><h3>Money Market & Govt Sec</h3></div>
+        <table id="money-table">
+            <thead><tr><th>Instrument</th><th>Rate/Yield</th><th>Tenor</th></tr></thead>
+            <tbody><tr><td colspan="3">Loading...</td></tr></tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div class="head-row"><h3>Bank FD Rates (Avg)</h3></div>
+        <table id="fd-table">
+            <thead><tr><th>Bank</th><th>Rate (3-12M)</th><th>Status</th></tr></thead>
+            <tbody><tr><td colspan="3">Loading...</td></tr></tbody>
+        </table>
+    </div>
+
+    <div class="card" id="news">
+        <div class="head-row"><h3>Latest Economy News</h3></div>
+        <div id="news-feed">Loading News...</div>
+        <a href="https://www.bb.org.bd/en/index.php/mediaroom/circular" target="_blank" class="job-btn btn-sr" style="margin-top:15px; background: #444;">
+            <i class="fas fa-file-alt"></i> View BB Circulars
+        </a>
+    </div>
+
+    <div class="card" id="jobs">
+        <div class="head-row"><h3>Career Opportunities</h3></div>
+        
+        <a href="https://www.linkedin.com/jobs/search/?keywords=Senior%20Relationship%20Manager%20Bank&location=Bangladesh" target="_blank" class="job-btn btn-sr">
+            <i class="fas fa-briefcase"></i> Find: Senior Relationship Manager
+        </a>
+        
+        <a href="https://www.linkedin.com/jobs/search/?keywords=Relationship%20Manager%20Corporate%20Banking&location=Bangladesh" target="_blank" class="job-btn btn-linkedin">
+            <i class="fab fa-linkedin"></i> LinkedIn: Corp Banking Jobs
+        </a>
+
+        <a href="https://bdjobs.com/jobsearch/jobsearch.asp?fcatId=2" target="_blank" class="job-btn btn-bdjobs">
+            <i class="fas fa-search"></i> BdJobs: Banking/NBFI
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="head-row"><h3>Economy Trend (USD Bn)</h3></div>
+        <div style="height: 200px; position: relative;">
+            <canvas id="macroChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="head-row"><h3>EMI Calculator</h3></div>
+        <div class="calc-grid">
+            <input type="number" id="amt" placeholder="Amount">
+            <input type="number" id="rate" placeholder="Rate %">
+            <input type="number" id="yrs" placeholder="Years">
+        </div>
+        <button onclick="calcEMI()" class="job-btn btn-sr">Calculate</button>
+        <div id="emi-res" class="calc-res"></div>
+    </div>
+
+</div>
+
+<footer>
+    RM Dashboard 2025 | Contact: mirzasaifur110@gmail.com
+</footer>
+
+<script>
+    // --- PASTE YOUR CSV LINK HERE ---
+    const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmXQT7pVvDAxUZvD3IOoh8bAoX1hqSNRc5ZZzYQjfFtgN66H1XT4GueFvlV8jysI6z4fuKjnN645Jm/pub?gid=319859565&single=true&output=csv"; 
+    // --------------------------------
+
+    // INITIALIZE
+    function init() {
+        if(SHEET_URL.includes("PASTE")) {
+            document.querySelector('.container').innerHTML = "<h2 style='text-align:center;color:red'>Error: Paste CSV Link in Code</h2>";
+            return;
+        }
+        fetchData();
+        fetchNews();
+    }
+
+    // 1. FETCH SHEET DATA
+    function fetchData() {
+        Papa.parse(SHEET_URL, {
+            download: true,
+            header: true,
+            complete: function(results) {
+                renderData(results.data);
+            }
+        });
+    }
+
+    function renderData(data) {
+        let fxHTML = "";
+        let moneyHTML = "";
+        let fdHTML = "";
+        let chartLabels = [];
+        let chartData = [];
+
+        data.forEach(row => {
+            // Forex
+            if(row.Type === 'Forex') {
+                let val = parseFloat(row.Value).toFixed(2);
+                if(isNaN(val)) val = row.Value;
+                fxHTML += `<div class="fx-item"><span class="fx-label">${row.Item}</span><span class="fx-val">${val}</span></div>`;
+            }
+            
+            // Money Market
+            if(row.Type === 'Money') {
+                moneyHTML += `<tr><td>${row.Item}</td><td style="font-weight:bold; color:#004d40">${row.Value}</td><td>${row.Note}</td></tr>`;
+            }
+
+            // FD Rates
+            if(row.Type === 'FD') {
+                let cls = row.Note.includes('Top') ? 'highlight' : '';
+                fdHTML += `<tr><td>${row.Item}</td><td class="${cls}">${row.Value}</td><td>${row.Note}</td></tr>`;
+            }
+
+            // Chart
+            if(row.Type === 'Macro') {
+                chartLabels.push(row.Item);
+                chartData.push(parseFloat(row.Value));
+            }
+        });
+
+        document.getElementById('forex-box').innerHTML = fxHTML;
+        document.getElementById('money-table').querySelector('tbody').innerHTML = moneyHTML;
+        document.getElementById('fd-table').querySelector('tbody').innerHTML = fdHTML;
+        
+        // Render Chart
+        new Chart(document.getElementById('macroChart'), {
+            type: 'bar',
+            data: {
+                labels: chartLabels,
+                datasets: [{ label: 'USD Bn', data: chartData, backgroundColor: '#004d40', borderRadius: 4 }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // 2. FETCH NEWS (Financial Express RSS)
+    async function fetchNews() {
+        try {
+            const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https://thefinancialexpress.com.bd/rss/economy');
+            const data = await res.json();
+            let html = "";
+            data.items.slice(0, 5).forEach(item => {
+                html += `
+                    <a href="${item.link}" target="_blank" class="news-link">
+                        ${item.title}
+                        <span class="news-date">${item.pubDate.split(' ')[0]}</span>
+                    </a>`;
+            });
+            document.getElementById('news-feed').innerHTML = html;
+        } catch(e) {
+            document.getElementById('news-feed').innerHTML = "<p>News Loading Failed.</p>";
+        }
+    }
+
+    // 3. EMI CALC
+    function calcEMI() {
+        let p = document.getElementById('amt').value;
+        let r = document.getElementById('rate').value / 1200;
+        let n = document.getElementById('yrs').value * 12;
+        if(p && r && n) {
+            let emi = p * r * (Math.pow(1+r,n)/(Math.pow(1+r,n)-1));
+            let res = document.getElementById('emi-res');
+            res.style.display = 'block';
+            res.innerHTML = "Monthly EMI: " + Math.round(emi).toLocaleString() + " BDT";
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
